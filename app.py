@@ -30,7 +30,7 @@ def index():
 def search_dropbox_videos(name, pin):
     found_links = []
     try:
-        response = db.files_list_folder("")
+        response = db.files_list_folder("/App/glam4you_Videos")
         for entry in response.entries:
             if entry.name.startswith(name) and pin in entry.name and entry.name.endswith(".mp4"):
                 shared_link = db.sharing_create_shared_link_with_settings(entry.path_lower)
