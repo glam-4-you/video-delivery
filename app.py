@@ -36,12 +36,12 @@ def index():
 
 def search_dropbox_videos(name, pin):
     """
-    Listet alle Dateien im spezifischen Dropbox-Ordner '/glam4you_Videos' auf,
+    Listet alle Dateien im Ordner 'Apps/glam4you_Videos' auf,
     und filtert nach Name (am Dateianfang) und PIN.
     Gibt eine Liste von (Dateiname, Link)-Tuples zurück.
     """
     found_links = []
-    folder_path = "/glam4you_Videos"
+    folder_path = "/Apps/glam4you_Videos"
     try:
         # Verbindungscheck
         try:
