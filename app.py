@@ -40,7 +40,7 @@ def search_dropbox_videos(name, pin):
     Gibt eine Liste von (Dateiname, Link)-Tuples zurück.
     """
     found_links = []
-    folder_path = ""  # Für App-Folder-Apps leer lassen
+    folder_path = "/glam4you_Videos"  # Für App-Folder-Apps leer lassen
     try:
         # Debug-Ausgabe der Suchparameter
         print(f"Suche in Dropbox-Ordner: {folder_path or '[App Folder Root]'} nach Name='{name}', PIN='{pin}'")
