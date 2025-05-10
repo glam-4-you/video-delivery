@@ -2,11 +2,14 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 import os
 import dropbox
+from dropbox.files import FileMetadata
 
 # === Konfiguration ===
 DROPBOX_TOKEN = os.getenv("DROPBOX_TOKEN")
 
-# Dropbox-Client
+# Dropbox-Client initialisieren
+if not DROPBOX_TOKEN:
+    raise ValueError("DROPBOX_TOKEN is not set")
 db = dropbox.Dropbox(DROPBOX_TOKEN)
 
 # Flask-App
@@ -16,8 +19,8 @@ app.secret_key = "supersecretkey"
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        name = request.form["name"].strip()
-        pin = request.form["pin"].strip()
+        name = request.form.get("name", "").strip()
+        pin = request.form.get("pin", "").strip()
 
         matches = search_dropbox_videos(name, pin)
 
@@ -29,16 +32,50 @@ def index():
 
     return render_template("form.html")
 
+
 def search_dropbox_videos(name, pin):
+    """
+    Listet alle Dateien im Dropbox-Ordner '/App/glam4you_Videos' rekursiv auf,
+    und filtert nach Name (am Dateianfang) und PIN.
+    Gibt eine Liste von (Dateiname, Link)-Tuples zurück.
+    """
     found_links = []
+    folder_path = "/App/glam4you_Videos"
     try:
-        # Pfad zu deinem Dropbox-Ordner: /App/glam4you_Videos
-        response = db.files_list_folder("/App/glam4you_Videos")
-        for entry in response.entries:
-            if entry.name.startswith(name) and pin in entry.name and entry.name.endswith(".mp4"):
-                shared_link = db.sharing_create_shared_link_with_settings(entry.path_lower)
-                url = shared_link.url.replace("?dl=0", "?dl=1")
-                found_links.append((entry.name, url))
+        # Debug-Ausgabe der Suchparameter
+        print(f"Suche in Dropbox-Ordner: {folder_path} nach Name='{name}', PIN='{pin}'")
+        # Dateien rekursiv auflisten
+        result = db.files_list_folder(folder_path, recursive=True)
+        entries = list(result.entries)
+        while result.has_more:
+            result = db.files_list_folder_continue(result.cursor)
+            entries.extend(result.entries)
+
+        # Debug-Ausgabe aller Einträge
+        print("Gefundene Einträge:")
+        for entry in entries:
+            if isinstance(entry, FileMetadata):
+                fname = entry.name
+                print(f" - {fname}")
+                # Prüfungen
+                name_match = fname.lower().startswith(name.lower())
+                pin_match = pin in fname
+                print(f"   -> name_match={name_match}, pin_match={pin_match}")
+                if name_match and pin_match:
+                    try:
+                        links = db.sharing_get_shared_links(path=entry.path_lower).links
+                        if links:
+                            url = links[0].url
+                        else:
+                            link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
+                            url = link_meta.url
+                        url = url.replace("?dl=0", "?dl=1")
+                        found_links.append((fname, url))
+                    except Exception as e:
+                        print(f"Fehler beim Link-Generieren für {fname}: {e}")
+
+        # Debug-Ausgabe der Treffer
+        print(f"Matches: {found_links}")
     except Exception as e:
         print("Dropbox-Fehler:", e)
     return found_links
