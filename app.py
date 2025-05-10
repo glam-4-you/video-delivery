@@ -35,15 +35,15 @@ def index():
 
 def search_dropbox_videos(name, pin):
     """
-    Listet alle Dateien im Dropbox-Ordner '/App/glam4you_Videos' rekursiv auf,
+    Listet alle Dateien im Dropbox-App-Ordner rekursiv auf,
     und filtert nach Name (am Dateianfang) und PIN.
     Gibt eine Liste von (Dateiname, Link)-Tuples zurück.
     """
     found_links = []
-    folder_path = "/App/glam4you_Videos"
+    folder_path = ""  # Für App-Folder-Apps leer lassen
     try:
         # Debug-Ausgabe der Suchparameter
-        print(f"Suche in Dropbox-Ordner: {folder_path} nach Name='{name}', PIN='{pin}'")
+        print(f"Suche in Dropbox-Ordner: {folder_path or '[App Folder Root]'} nach Name='{name}', PIN='{pin}'")
         # Dateien rekursiv auflisten
         result = db.files_list_folder(folder_path, recursive=True)
         entries = list(result.entries)
