@@ -4,41 +4,27 @@
   <meta charset="utf-8">
   <title>Video-Zugang</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    label { display: block; margin-top: 1rem; }
-    input { width: 100%; padding: 0.5rem; }
-    button { margin-top: 1rem; padding: 0.5rem 1rem; }
-    .success { color: green; }
+    body { font-family: sans-serif; max-width: 500px; margin: 2rem auto; }
+    label, input, button { display: block; width: 100%; margin-top: 1rem; }
+    button { padding: 0.6rem; }
     .error { color: red; }
   </style>
 </head>
 <body>
-  <h1>Persönliches Video abrufen</h1>
-
+  <h1>Video abrufen</h1>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <ul>
-        {% for category, message in messages %}
-          <li class="{{ category }}">{{ message }}</li>
-        {% endfor %}
-      </ul>
+      <p class="error">{{ messages[0][1] }}</p>
     {% endif %}
   {% endwith %}
-
   <form method="post">
     <label>Name:
       <input type="text" name="name" required>
     </label>
-    <label>Nummer:
-      <input type="text" name="nummer" required>
-    </label>
     <label>PIN:
       <input type="text" name="pin" required>
     </label>
-    <label>E-Mail:
-      <input type="email" name="email" required>
-    </label>
-    <button type="submit">Absenden</button>
+    <button type="submit">Suchen</button>
   </form>
 </body>
 </html>
