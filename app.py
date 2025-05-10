@@ -31,11 +31,14 @@ def search_dropbox_videos(name, pin):
     found_links = []
     try:
         response = db.files_list_folder("/App/glam4you_Videos")
+        print("Dateien im Ordner /App/glam4you_Videos:")
         for entry in response.entries:
+            print("-", entry.name)
             if entry.name.startswith(name) and pin in entry.name and entry.name.endswith(".mp4"):
                 shared_link = db.sharing_create_shared_link_with_settings(entry.path_lower)
                 url = shared_link.url.replace("?dl=0", "?dl=1")
                 found_links.append((entry.name, url))
+
     except Exception as e:
         print("Dropbox-Fehler:", e)
     return found_links
