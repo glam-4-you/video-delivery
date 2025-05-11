@@ -1,2 +1,3 @@
-Flask
-dropbox
+dropbox==11.34.0
+flask==2.3.3
+requests==2.31.0
