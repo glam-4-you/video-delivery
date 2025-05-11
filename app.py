@@ -85,16 +85,16 @@ def search_dropbox_videos(name, pin):
 
         for entry in matching_entries:
             try:
-                # Zuerst prüfen: Gibt es bereits einen geteilten Link?
-                links = db.sharing_get_shared_links(path=entry.path_lower).links
+                # Suche nach einem direkten Link (vermeidet shared_link_already_exists Fehler)
+                links = db.sharing_get_shared_links(path=entry.path_lower, direct_only=True).links
                 if links:
                     url = links[0].url
                 else:
-                    # Falls nicht, erstelle einen neuen
+                    # Nur wenn kein Link existiert, erstelle einen neuen
                     link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
                     url = link_meta.url
 
-                # Optional: Direktdownload-Link daraus machen
+                # Optional: Umwandlung in Download-Link
                 url = url.replace("?dl=0", "?dl=1")
                 found_links.append((entry.name, url))
 
