@@ -85,26 +85,21 @@ def search_dropbox_videos(name, pin):
 
         for entry in matching_entries:
             try:
+                # Zuerst prüfen: Gibt es bereits einen geteilten Link?
                 links = db.sharing_get_shared_links(path=entry.path_lower).links
                 if links:
                     url = links[0].url
                 else:
+                    # Falls nicht, erstelle einen neuen
                     link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
                     url = link_meta.url
 
+                # Optional: Direktdownload-Link daraus machen
                 url = url.replace("?dl=0", "?dl=1")
                 found_links.append((entry.name, url))
 
-            except dropbox.exceptions.ApiError as e:
-                if e.error.is_shared_link_already_exists():
-                    try:
-                        url = e.error.get_shared_link_already_exists().url
-                        url = url.replace("?dl=0", "?dl=1")
-                        found_links.append((entry.name, url))
-                    except Exception as inner:
-                        print(f"⚠️ Konnte URL aus shared_link_already_exists nicht extrahieren: {inner}", file=sys.stderr)
-                else:
-                    print(f"Fehler beim Link-Generieren für {entry.name}: {e}", file=sys.stderr)
+            except Exception as e:
+                print(f"❌ Fehler beim Generieren des Links für {entry.name}: {e}", file=sys.stderr)
 
         print(f"Matches: {found_links}", file=sys.stderr)
     except Exception as e:
