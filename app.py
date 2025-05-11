@@ -1,17 +1,19 @@
-# app.py
 from flask import Flask, request, render_template, redirect, url_for, flash
 import os
 import dropbox
 from dropbox.files import FileMetadata
 import sys
 import requests
+import json
+import datetime
+from io import BytesIO
 
-# === Konfiguration über Umgebungsvariablen ===
+# === Konfiguration ===
 APP_KEY = os.getenv("DROPBOX_APP_KEY")
 APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
 REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
 
-# === Access Token aus Refresh Token erzeugen ===
+# === Access Token erzeugen ===
 def get_access_token():
     token_url = "https://api.dropbox.com/oauth2/token"
     data = {
@@ -28,13 +30,51 @@ def get_access_token():
         print("❌ Fehler beim Erzeugen des Access Tokens:", e, file=sys.stderr)
         raise
 
-# === Dropbox-Client initialisieren ===
+# === Dropbox-Client ===
 access_token = get_access_token()
 db = dropbox.Dropbox(access_token)
 
-# Flask-App
+# === Flask App ===
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+
+# === Konstanten ===
+LINK_FOLDER = "/Apps/glam4you_Videos/Links"
+DAYS_TO_KEEP = 7
+
+def load_cached_links():
+    """Lädt alle links-*.json Dateien der letzten 7 Tage aus Dropbox."""
+    cached_links = {}
+    today = datetime.date.today()
+    try:
+        res = db.files_list_folder(LINK_FOLDER)
+        for entry in res.entries:
+            if isinstance(entry, FileMetadata) and entry.name.startswith("links-") and entry.name.endswith(".json"):
+                # Datum extrahieren
+                try:
+                    date_str = entry.name[6:-5]  # links-YYYY-MM-DD.json
+                    file_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+                    if (today - file_date).days <= DAYS_TO_KEEP:
+                        _, res = db.files_download(entry.path_lower)
+                        data = json.load(res.raw)
+                        cached_links.update(data)
+                except Exception as parse_err:
+                    print(f"⚠️ Konnte Datei {entry.name} nicht verarbeiten: {parse_err}", file=sys.stderr)
+    except Exception as e:
+        print(f"⚠️ Fehler beim Laden von Link-Dateien: {e}", file=sys.stderr)
+    return cached_links
+
+def save_today_links(today_links):
+    """Speichert das Dictionary als JSON in Dropbox (Datei des heutigen Tages)."""
+    today_str = datetime.date.today().isoformat()
+    filename = f"links-{today_str}.json"
+    path = f"{LINK_FOLDER}/{filename}"
+    try:
+        json_bytes = json.dumps(today_links, indent=2).encode("utf-8")
+        db.files_upload(json_bytes, path, mode=dropbox.files.WriteMode.overwrite)
+        print(f"✅ Aktualisierte Link-Datei: {filename}", file=sys.stderr)
+    except Exception as e:
+        print(f"❌ Fehler beim Speichern von {filename}: {e}", file=sys.stderr)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -52,76 +92,43 @@ def index():
 
     return render_template("form.html")
 
-
 def search_dropbox_videos(name, pin):
-    """
-    Sucht im Ordner 'Apps/glam4you_Videos' nach Videos, die mit dem Namen anfangen
-    und den PIN enthalten. Gibt eine Liste von (Dateiname, Link)-Tuples zurück.
-    """
-    found_links = []
     folder_path = "/Apps/glam4you_Videos"
+    link_cache = load_cached_links()
+    today_links = {}
+    found_links = []
     try:
-        acc = db.users_get_current_account()
-        print(f"✅ Verbunden mit Dropbox-Konto: {acc.name.display_name}", file=sys.stderr)
-        print(f"Suche in Dropbox-Ordner: {folder_path} nach Name='{name}', PIN='{pin}'", file=sys.stderr)
-
         result = db.files_list_folder(folder_path)
         entries = list(result.entries)
         while result.has_more:
             result = db.files_list_folder_continue(result.cursor)
             entries.extend(result.entries)
 
-        print("Gefundene Einträge:", file=sys.stderr)
-        matching_entries = []
-
         for entry in entries:
             if isinstance(entry, FileMetadata):
                 fname = entry.name
                 name_match = fname.lower().startswith(name.lower())
                 pin_match = pin in fname
-                print(f" - {fname}\n   -> name_match={name_match}, pin_match={pin_match}", file=sys.stderr)
                 if name_match and pin_match:
-                    matching_entries.append(entry)
+                    # Prüfe Cache
+                    if fname in link_cache:
+                        url = link_cache[fname]
+                        found_links.append((fname, url))
+                    else:
+                        try:
+                            link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
+                            url = link_meta.url.replace("?dl=0", "?dl=1")
+                            found_links.append((fname, url))
+                            today_links[fname] = url
+                        except Exception as e:
+                            print(f"❌ Fehler beim Erzeugen des Links für {fname}: {e}", file=sys.stderr)
 
-        # Verarbeitung der gefundenen Dateien
-        for entry in matching_entries:
-            try:
-                # 1. Prüfe: Gibt es bereits einen Link?
-                links = db.sharing_get_shared_links(path=entry.path_lower).links
-                url = None
-                for link in links:
-                    if hasattr(link, "path_lower") and link.path_lower == entry.path_lower:
-                        url = link.url
-                        break
+        if today_links:
+            save_today_links(today_links)
 
-                # 2. Falls nicht, versuche Link zu erstellen
-                if not url:
-                    try:
-                        link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
-                        url = link_meta.url
-                    except dropbox.exceptions.ApiError as e:
-                        # 3. Falls Fehler: Link existiert bereits – wir holen ihn aus dem Fehlerobjekt
-                        if e.error.is_shared_link_already_exists():
-                            try:
-                                url = e.error.get_shared_link_already_exists().url
-                            except Exception as inner:
-                                print(f"⚠️ Konnte URL aus shared_link_already_exists nicht extrahieren: {inner}", file=sys.stderr)
-                        else:
-                            raise
-
-                # 4. Falls wir eine URL haben, verarbeite sie
-                if url:
-                    url = url.replace("?dl=0", "?dl=1")
-                    found_links.append((entry.name, url))
-                else:
-                    print(f"⚠️ Kein gültiger Link für {entry.name} gefunden", file=sys.stderr)
-
-            except Exception as e:
-                print(f"❌ Fehler beim Generieren des Links für {entry.name}: {e}", file=sys.stderr)
-
-        print(f"Matches: {found_links}", file=sys.stderr)
     except Exception as e:
-        print("Dropbox-Fehler:", e, file=sys.stderr)
+        print(f"Dropbox-Fehler: {e}", file=sys.stderr)
+
     return found_links
 
 if __name__ == "__main__":
