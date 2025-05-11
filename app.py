@@ -4,14 +4,33 @@ import os
 import dropbox
 from dropbox.files import FileMetadata
 import sys
+import requests
 
-# === Konfiguration ===
-DROPBOX_TOKEN = os.getenv("DROPBOX_TOKEN")
+# === Konfiguration über Umgebungsvariablen ===
+APP_KEY = os.getenv("DROPBOX_APP_KEY")
+APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
+REFRESH_TOKEN = os.getenv("DROPBOX_REFRESH_TOKEN")
 
-# Dropbox-Client initialisieren
-if not DROPBOX_TOKEN:
-    raise ValueError("DROPBOX_TOKEN is not set")
-db = dropbox.Dropbox(DROPBOX_TOKEN)
+# === Access Token aus Refresh Token erzeugen ===
+def get_access_token():
+    token_url = "https://api.dropbox.com/oauth2/token"
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": REFRESH_TOKEN,
+        "client_id": APP_KEY,
+        "client_secret": APP_SECRET
+    }
+    try:
+        response = requests.post(token_url, data=data)
+        response.raise_for_status()
+        return response.json()["access_token"]
+    except Exception as e:
+        print("❌ Fehler beim Erzeugen des Access Tokens:", e, file=sys.stderr)
+        raise
+
+# === Dropbox-Client initialisieren ===
+access_token = get_access_token()
+db = dropbox.Dropbox(access_token)
 
 # Flask-App
 app = Flask(__name__)
