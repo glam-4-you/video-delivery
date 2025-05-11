@@ -102,6 +102,11 @@ def index():
 
     return render_template("form.html")
 
+def force_direct_download(url):
+    if url.endswith("dl=0"):
+        return url[:-1] + "1"
+    return url
+
 def search_dropbox_videos(name, pin):
     folder_path = "/Apps/glam4you_Videos"
     link_cache = load_cached_links()
@@ -121,12 +126,12 @@ def search_dropbox_videos(name, pin):
                 pin_match = pin in fname
                 if name_match and pin_match:
                     if fname in link_cache:
-                        url = link_cache[fname]
+                        url = force_direct_download(link_cache[fname])
                         found_links.append((fname, url))
                     else:
                         try:
                             link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
-                            url = link_meta.url.replace("?dl=0", "?dl=1")
+                            url = force_direct_download(link_meta.url)
                             found_links.append((fname, url))
                             today_links[fname] = url
                         except dropbox.exceptions.ApiError as e:
@@ -134,7 +139,7 @@ def search_dropbox_videos(name, pin):
                                 try:
                                     error_info = e.error.get_shared_link_already_exists()
                                     if hasattr(error_info, "metadata") and hasattr(error_info.metadata, "url"):
-                                        url = error_info.metadata.url.replace("?dl=0", "?dl=1")
+                                        url = force_direct_download(error_info.metadata.url)
                                         found_links.append((fname, url))
                                         today_links[fname] = url
                                 except Exception as inner:
