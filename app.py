@@ -103,8 +103,9 @@ def index():
     return render_template("form.html")
 
 def force_direct_download(url):
-    if url.endswith("dl=0"):
-        return url[:-1] + "1"
+    url = url.replace("?dl=0", "?raw=1").replace("?dl=1", "?raw=1")
+    if "?" in url and "raw=1" not in url:
+        url += "&raw=1"
     return url
 
 def search_dropbox_videos(name, pin):
