@@ -91,12 +91,21 @@ def search_dropbox_videos(name, pin):
                 print(f"   -> name_match={name_match}, pin_match={pin_match}", file=sys.stderr)
                 if name_match and pin_match:
                     try:
+                        # Versuche zuerst, vorhandenen Link zu holen
                         links = db.sharing_get_shared_links(path=entry.path_lower).links
                         if links:
                             url = links[0].url
                         else:
-                            link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
-                            url = link_meta.url
+                            try:
+                                link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
+                                url = link_meta.url
+                            except dropbox.exceptions.ApiError as e:
+                                if (hasattr(e, 'error') and hasattr(e.error, '.is_shared_link_already_exists')
+                                        and e.error.is_shared_link_already_exists()):
+                                    url = e.error.get_shared_link_already_exists().metadata.url
+                                else:
+                                    raise e
+
                         url = url.replace("?dl=0", "?dl=1")
                         found_links.append((fname, url))
                     except Exception as e:
