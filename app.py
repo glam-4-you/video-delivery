@@ -100,9 +100,8 @@ def search_dropbox_videos(name, pin):
                                 link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
                                 url = link_meta.url
                             except dropbox.exceptions.ApiError as e:
-                                if (hasattr(e, 'error') and hasattr(e.error, '.is_shared_link_already_exists')
-                                        and e.error.is_shared_link_already_exists()):
-                                    url = e.error.get_shared_link_already_exists().metadata.url
+                                if (e.error and e.error.is_shared_link_already_exists()):
+                                    url = e.error.get_path().url
                                 else:
                                     raise e
 
