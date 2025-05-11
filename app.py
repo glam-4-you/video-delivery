@@ -103,10 +103,12 @@ def index():
     return render_template("form.html")
 
 def force_direct_download(url):
-    url = url.replace("?dl=0", "?raw=1").replace("?dl=1", "?raw=1")
-    if "?" in url and "raw=1" not in url:
-        url += "&raw=1"
-    return url
+    if "?" in url:
+        base, _, query = url.partition("?")
+        parts = [q for q in query.split("&") if not q.startswith("dl=") and not q.startswith("raw=")]
+        return f"{base}?{'&'.join(parts)}&dl=1"
+    else:
+        return url + "?dl=1"
 
 def search_dropbox_videos(name, pin):
     folder_path = "/Apps/glam4you_Videos"
