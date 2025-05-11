@@ -2,29 +2,65 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <title>Video-Zugang</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>glam4you</title>
   <style>
-    body { font-family: sans-serif; max-width: 500px; margin: 2rem auto; }
-    label, input, button { display: block; width: 100%; margin-top: 1rem; }
-    button { padding: 0.6rem; }
-    .error { color: red; }
+    body {
+      font-family: sans-serif;
+      background-color: #fff;
+      color: #000;
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+    input {
+      height: 3rem;
+      font-size: 1.2rem;
+      padding: 0 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 200px;
+    }
+    button {
+      height: 3rem;
+      font-size: 1.2rem;
+      width: 100px;
+      background-color: #000;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .error {
+      color: red;
+    }
   </style>
 </head>
 <body>
-  <h1>Video abrufen</h1>
+  <h1>Get your glam4you</h1>
+  <p>enter your Session-Name and PIN</p>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <p class="error">{{ messages[0][1] }}</p>
     {% endif %}
   {% endwith %}
   <form method="post">
-    <label>Name:
-      <input type="text" name="name" required>
-    </label>
-    <label>PIN:
-      <input type="text" name="pin" required>
-    </label>
-    <button type="submit">Suchen</button>
+    <input type="text" name="name" placeholder="Name" required>
+    <input type="text" name="pin" placeholder="PIN" required maxlength="3">
+    <button type="submit">GO</button>
   </form>
 </body>
 </html>
