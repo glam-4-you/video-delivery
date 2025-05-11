@@ -50,7 +50,6 @@ def load_cached_links():
         res = db.files_list_folder(LINK_FOLDER)
         for entry in res.entries:
             if isinstance(entry, FileMetadata) and entry.name.startswith("links-") and entry.name.endswith(".json"):
-                # Datum extrahieren
                 try:
                     date_str = entry.name[6:-5]  # links-YYYY-MM-DD.json
                     file_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -65,14 +64,25 @@ def load_cached_links():
     return cached_links
 
 def save_today_links(today_links):
-    """Speichert das Dictionary als JSON in Dropbox (Datei des heutigen Tages)."""
+    """Ergänzt das heutige JSON in Dropbox (anstatt es zu überschreiben)."""
     today_str = datetime.date.today().isoformat()
     filename = f"links-{today_str}.json"
     path = f"{LINK_FOLDER}/{filename}"
     try:
-        json_bytes = json.dumps(today_links, indent=2).encode("utf-8")
+        existing_data = {}
+        try:
+            _, res = db.files_download(path)
+            existing_data = json.load(res.raw)
+        except dropbox.exceptions.ApiError as e:
+            if e.error.get_path().is_not_found():
+                print(f"ℹ️ Keine bestehende Datei gefunden, erstelle neue: {filename}", file=sys.stderr)
+            else:
+                raise
+
+        existing_data.update(today_links)
+        json_bytes = json.dumps(existing_data, indent=2).encode("utf-8")
         db.files_upload(json_bytes, path, mode=dropbox.files.WriteMode.overwrite)
-        print(f"✅ Aktualisierte Link-Datei: {filename}", file=sys.stderr)
+        print(f"✅ Ergänzte Link-Datei: {filename}", file=sys.stderr)
     except Exception as e:
         print(f"❌ Fehler beim Speichern von {filename}: {e}", file=sys.stderr)
 
@@ -110,7 +120,6 @@ def search_dropbox_videos(name, pin):
                 name_match = fname.lower().startswith(name.lower())
                 pin_match = pin in fname
                 if name_match and pin_match:
-                    # Prüfe Cache
                     if fname in link_cache:
                         url = link_cache[fname]
                         found_links.append((fname, url))
@@ -120,8 +129,18 @@ def search_dropbox_videos(name, pin):
                             url = link_meta.url.replace("?dl=0", "?dl=1")
                             found_links.append((fname, url))
                             today_links[fname] = url
-                        except Exception as e:
-                            print(f"❌ Fehler beim Erzeugen des Links für {fname}: {e}", file=sys.stderr)
+                        except dropbox.exceptions.ApiError as e:
+                            if e.error.is_shared_link_already_exists():
+                                try:
+                                    error_info = e.error.get_shared_link_already_exists()
+                                    if hasattr(error_info, "metadata") and hasattr(error_info.metadata, "url"):
+                                        url = error_info.metadata.url.replace("?dl=0", "?dl=1")
+                                        found_links.append((fname, url))
+                                        today_links[fname] = url
+                                except Exception as inner:
+                                    print(f"⚠️ Konnte URL aus shared_link_already_exists nicht extrahieren: {inner}", file=sys.stderr)
+                            else:
+                                print(f"❌ Fehler beim Erzeugen des Links für {fname}: {e}", file=sys.stderr)
 
         if today_links:
             save_today_links(today_links)
