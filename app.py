@@ -98,8 +98,7 @@ def search_dropbox_videos(name, pin):
             except dropbox.exceptions.ApiError as e:
                 if e.error.is_shared_link_already_exists():
                     try:
-                        metadata = e.error.get_shared_link_already_exists().get_link_metadata()
-                        url = metadata.url
+                        url = e.error.get_shared_link_already_exists().url
                         url = url.replace("?dl=0", "?dl=1")
                         found_links.append((entry.name, url))
                     except Exception as inner:
