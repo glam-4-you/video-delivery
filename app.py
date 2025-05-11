@@ -83,24 +83,38 @@ def search_dropbox_videos(name, pin):
                 if name_match and pin_match:
                     matching_entries.append(entry)
 
+        # Verarbeitung der gefundenen Dateien
         for entry in matching_entries:
             try:
-                # Links abrufen
+                # 1. Prüfe: Gibt es bereits einen Link?
                 links = db.sharing_get_shared_links(path=entry.path_lower).links
                 url = None
                 for link in links:
-                    # Sicherstellen, dass der Link exakt zur Datei passt
                     if hasattr(link, "path_lower") and link.path_lower == entry.path_lower:
                         url = link.url
                         break
-                # Falls kein Link existiert, erstelle einen
-                if not url:
-                    link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
-                    url = link_meta.url
 
-                # In Download-Link umwandeln
-                url = url.replace("?dl=0", "?dl=1")
-                found_links.append((entry.name, url))
+                # 2. Falls nicht, versuche Link zu erstellen
+                if not url:
+                    try:
+                        link_meta = db.sharing_create_shared_link_with_settings(entry.path_lower)
+                        url = link_meta.url
+                    except dropbox.exceptions.ApiError as e:
+                        # 3. Falls Fehler: Link existiert bereits – wir holen ihn aus dem Fehlerobjekt
+                        if e.error.is_shared_link_already_exists():
+                            try:
+                                url = e.error.get_shared_link_already_exists().url
+                            except Exception as inner:
+                                print(f"⚠️ Konnte URL aus shared_link_already_exists nicht extrahieren: {inner}", file=sys.stderr)
+                        else:
+                            raise
+
+                # 4. Falls wir eine URL haben, verarbeite sie
+                if url:
+                    url = url.replace("?dl=0", "?dl=1")
+                    found_links.append((entry.name, url))
+                else:
+                    print(f"⚠️ Kein gültiger Link für {entry.name} gefunden", file=sys.stderr)
 
             except Exception as e:
                 print(f"❌ Fehler beim Generieren des Links für {entry.name}: {e}", file=sys.stderr)
