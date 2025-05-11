@@ -96,11 +96,14 @@ def search_dropbox_videos(name, pin):
                 found_links.append((entry.name, url))
 
             except dropbox.exceptions.ApiError as e:
-                if (e.error.is_shared_link_already_exists() and
-                    hasattr(e.error.get_shared_link_already_exists(), "url")):
-                    url = e.error.get_shared_link_already_exists().url
-                    url = url.replace("?dl=0", "?dl=1")
-                    found_links.append((entry.name, url))
+                if e.error.is_shared_link_already_exists():
+                    try:
+                        metadata = e.error.get_shared_link_already_exists().get_link_metadata()
+                        url = metadata.url
+                        url = url.replace("?dl=0", "?dl=1")
+                        found_links.append((entry.name, url))
+                    except Exception as inner:
+                        print(f"⚠️ Konnte URL aus shared_link_already_exists nicht extrahieren: {inner}", file=sys.stderr)
                 else:
                     print(f"Fehler beim Link-Generieren für {entry.name}: {e}", file=sys.stderr)
 
