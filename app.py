@@ -11,33 +11,40 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 def list_pcloud_videos():
-    """Listet alle Dateien im glamour4you-Export-Ordner auf."""
     url = f"{PCLOUD_API}/listfolder"
     params = {
         "access_token": PCLOUD_TOKEN,
         "path": FOLDER_PATH
     }
     r = requests.get(url, params=params)
-    result = r.json()
+    print("Status Code listfolder:", r.status_code)
+    print("Antwort listfolder (Text):", r.text)
+    try:
+        result = r.json()
+    except Exception as ex:
+        raise Exception(f"Fehler beim Parsen von listfolder: {r.text}") from ex
     if result.get("result") != 0:
         raise Exception(f"pCloud API Fehler: {result.get('error', result)}")
     return result.get("metadata", {}).get("contents", [])
 
 def get_public_link(fileid):
-    """Erstellt einen neuen Public-Link oder holt den bestehenden."""
     url = f"{PCLOUD_API}/publink/create"
     params = {
         "access_token": PCLOUD_TOKEN,
         "fileid": fileid
     }
     r = requests.get(url, params=params)
-    result = r.json()
+    print("Status Code publink:", r.status_code)
+    print("Antwort publink (Text):", r.text)
+    try:
+        result = r.json()
+    except Exception as ex:
+        raise Exception(f"Fehler beim Parsen von publink: {r.text}") from ex
     if result.get("result") != 0:
         raise Exception(f"pCloud PublicLink Fehler: {result.get('error', result)}")
     return result.get("link")
 
 def filter_files(files, name, pin):
-    """Filtert nach Name und PIN im Dateinamen."""
     matches = []
     for f in files:
         fname = f.get("name", "")
