@@ -11,6 +11,7 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 def list_pcloud_videos():
+    """Listet alle Videos im angegebenen pCloud-Ordner."""
     url = f"{PCLOUD_API}/listfolder"
     params = {
         "access_token": PCLOUD_TOKEN,
@@ -28,12 +29,13 @@ def list_pcloud_videos():
     return result.get("metadata", {}).get("contents", [])
 
 def get_public_link(fileid):
+    """Erstellt einen neuen Public Link oder gibt den existierenden zurück."""
     url = f"{PCLOUD_API}/publink/create"
     params = {
         "access_token": PCLOUD_TOKEN,
         "fileid": fileid
     }
-    r = requests.get(url, params=params)
+    r = requests.post(url, data=params)   # <- pCloud erwartet POST!
     print("Status Code publink:", r.status_code)
     print("Antwort publink (Text):", r.text)
     try:
@@ -45,6 +47,7 @@ def get_public_link(fileid):
     return result.get("link")
 
 def filter_files(files, name, pin):
+    """Filtert nach Name und PIN im Dateinamen."""
     matches = []
     for f in files:
         fname = f.get("name", "")
@@ -57,7 +60,6 @@ def index():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         pin = request.form.get("pin", "").strip()
-
         try:
             files = list_pcloud_videos()
             hits = filter_files(files, name, pin)
