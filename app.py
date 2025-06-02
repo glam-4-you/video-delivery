@@ -1,20 +1,32 @@
-from flask import Flask, request, render_template, redirect, url_for, flash
 import os
 import requests
+from flask import Flask, request, render_template, redirect, url_for, flash
 
-# === pCloud Konfiguration ===
-PCLOUD_TOKEN = os.getenv("PCLOUD_TOKEN") or "q1XWCZF1KuZxy2s35CfAjFeVJh1lf4dijYY417V"
+# App-Config
+PCLOUD_USERNAME = os.getenv("PCLOUD_USERNAME")
+PCLOUD_PASSWORD = os.getenv("PCLOUD_PASSWORD")
 PCLOUD_API = "https://eapi.pcloud.com"
 FOLDER_PATH = "/glam4you/g4y_export"
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-def list_pcloud_videos():
-    """Holt alle Dateien aus dem glamour4you-Export-Ordner."""
+def get_pcloud_token():
+    """Holt einen temporären auth-Token mit Username/Passwort."""
+    r = requests.get(f"{PCLOUD_API}/userinfo", params={
+        "getauth": 1,
+        "username": PCLOUD_USERNAME,
+        "password": PCLOUD_PASSWORD
+    })
+    data = r.json()
+    if data.get("result") == 0 and "auth" in data:
+        return data["auth"]
+    raise Exception(f"Kein gültiger pCloud-Token: {data.get('error', data)}")
+
+def list_pcloud_videos(token):
     url = f"{PCLOUD_API}/listfolder"
     params = {
-        "access_token": PCLOUD_TOKEN,
+        "access_token": token,
         "path": FOLDER_PATH
     }
     r = requests.get(url, params=params)
@@ -23,11 +35,10 @@ def list_pcloud_videos():
         raise Exception(f"pCloud API Fehler: {result.get('error', result)}")
     return result.get("metadata", {}).get("contents", [])
 
-def get_public_link(fileid):
-    """Gibt existierenden Public Link zurück, oder erzeugt einen neuen."""
+def get_public_link(token, fileid):
     url = f"{PCLOUD_API}/publink/create"
     params = {
-        "access_token": PCLOUD_TOKEN,
+        "access_token": token,
         "fileid": fileid
     }
     r = requests.get(url, params=params)
@@ -37,7 +48,6 @@ def get_public_link(fileid):
     return result.get("link")
 
 def filter_files(files, name, pin):
-    """Filtert die Trefferliste nach Session-Name und PIN."""
     matches = []
     for f in files:
         fname = f.get("name", "")
@@ -52,11 +62,12 @@ def index():
         pin = request.form.get("pin", "").strip()
 
         try:
-            files = list_pcloud_videos()
+            token = get_pcloud_token()
+            files = list_pcloud_videos(token)
             hits = filter_files(files, name, pin)
             links = []
             for fname, fileid in hits:
-                url = get_public_link(fileid)
+                url = get_public_link(token, fileid)
                 links.append((fname, url))
         except Exception as e:
             flash(f"Fehler bei der pCloud-Abfrage: {e}", "danger")
