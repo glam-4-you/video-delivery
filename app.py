@@ -4,15 +4,16 @@ import requests
 
 # === pCloud-Konfiguration ===
 PCLOUD_TOKEN = os.getenv("PCLOUD_TOKEN")
-PCLOUD_API = "https://eapi.pcloud.com"
+PCLOUD_API_EU = "https://eapi.pcloud.com"
+PCLOUD_API_GLOBAL = "https://api.pcloud.com"
 FOLDER_PATH = "/glam4you/g4y_export"
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 def list_pcloud_videos():
-    """Listet alle Videos im angegebenen pCloud-Ordner."""
-    url = f"{PCLOUD_API}/listfolder"
+    """Listet alle Videos im angegebenen pCloud-Ordner (EU-API)."""
+    url = f"{PCLOUD_API_EU}/listfolder"
     params = {
         "access_token": PCLOUD_TOKEN,
         "path": FOLDER_PATH
@@ -29,13 +30,13 @@ def list_pcloud_videos():
     return result.get("metadata", {}).get("contents", [])
 
 def get_public_link(fileid):
-    """Erstellt einen neuen Public Link oder gibt den existierenden zurück."""
-    url = f"{PCLOUD_API}/publink/create"
+    """Erstellt einen neuen Public Link oder gibt den existierenden zurück (Global-API)."""
+    url = f"{PCLOUD_API_GLOBAL}/publink/create"  # <--- Korrekt: api.pcloud.com!
     params = {
         "access_token": PCLOUD_TOKEN,
         "fileid": fileid
     }
-    r = requests.post(url, data=params)   # <- pCloud erwartet POST!
+    r = requests.post(url, data=params)   # pCloud erwartet POST!
     print("Status Code publink:", r.status_code)
     print("Antwort publink (Text):", r.text)
     try:
