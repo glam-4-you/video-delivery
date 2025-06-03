@@ -1,3 +1,6 @@
 dropbox==11.36.0
 flask==2.3.3
 requests==2.31.0
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
