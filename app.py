@@ -57,7 +57,8 @@ def get_share_link(file_id):
     try:
         service.permissions().create(fileId=file_id, body=permission, fields="id").execute()
         file = service.files().get(fileId=file_id, fields="webViewLink").execute()
-	return file.get("webViewLink")
+return file.get("webViewLink")
+
 
     except Exception as e:
         print("Fehler beim Link erzeugen:", e)
