@@ -26,13 +26,14 @@ def list_drive_videos(name, pin):
         query = f"'{FOLDER_ID}' in parents and trashed = false"
         results = service.files().list(
             q=query,
-            fields="nextPageToken, files(id, name, webViewLink, webContentLink, mimeType)"
+            fields="files(id, name, webContentLink)"
         ).execute()
         files = results.get('files', [])
         matches = []
         for f in files:
             fname = f.get("name", "")
-            if fname.lower().startswith(name.lower()) and pin in fname:
+            # Suche: Name muss IRGENDWO (case-insensitive) im Dateinamen sein UND PIN ebenfalls
+            if name.lower().strip() in fname.lower() and pin.strip() in fname:
                 matches.append((fname, f['id']))
         return matches
     except Exception as e:
