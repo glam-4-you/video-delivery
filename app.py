@@ -7,8 +7,19 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
-CREDENTIALS_FILE = "credentials.json"
-TOKEN_FILE = "token.pickle"
+
+# === Secret-File Pfad-Handling (Render & lokal) ===
+CREDENTIALS_FILE = (
+    "/etc/secrets/credentials.json"
+    if os.path.exists("/etc/secrets/credentials.json")
+    else "credentials.json"
+)
+TOKEN_FILE = (
+    "/etc/secrets/token.pickle"
+    if os.path.exists("/etc/secrets/token.pickle")
+    else "token.pickle"
+)
+
 FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"  # <--- WICHTIG: hier die ID deines Google Drive Zielordners eintragen!
 
 app = Flask(__name__)
