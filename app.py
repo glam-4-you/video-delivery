@@ -9,7 +9,7 @@ SERVICE_ACCOUNT_FILE = (
     if os.path.exists("/etc/secrets/service-account.json")
     else "service-account.json"
 )
-FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"
+FOLDER_ID = "1GK0SNOvUuhY6DpfgwCq3b5qA41YmZap4"
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
