@@ -23,18 +23,26 @@ def get_drive_service():
 def list_drive_videos(name, pin):
     service = get_drive_service()
     try:
+        print(f"\nDEBUG: Suche in Google Drive Ordner {FOLDER_ID} nach Name='{name}', PIN='{pin}'")
         query = f"'{FOLDER_ID}' in parents and trashed = false"
         results = service.files().list(
             q=query,
             fields="files(id, name, webContentLink)"
         ).execute()
         files = results.get('files', [])
+        print("Alle Dateien im Google-Drive-Ordner:")
+        for f in files:
+            print("  -", f.get("name", ""))
         matches = []
         for f in files:
             fname = f.get("name", "")
-            # Suche: Name muss IRGENDWO (case-insensitive) im Dateinamen sein UND PIN ebenfalls
-            if name.lower().strip() in fname.lower() and pin.strip() in fname:
+            print(f"Check: '{fname}'  name={name} pin={pin}")
+            name_in_file = name.lower().strip() in fname.lower()
+            pin_in_file = pin.strip() in fname
+            print(f"   -> name_in_file={name_in_file}, pin_in_file={pin_in_file}")
+            if name_in_file and pin_in_file:
                 matches.append((fname, f['id']))
+        print(f"Gefundene Matches: {[m[0] for m in matches]}")
         return matches
     except Exception as e:
         print("Fehler bei Google Drive:", e)
