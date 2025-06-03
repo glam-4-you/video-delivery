@@ -1,60 +1,71 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 import os
-import requests
+import pickle
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
 
-# === pCloud-Konfiguration ===
-PCLOUD_TOKEN = os.getenv("PCLOUD_TOKEN")
-PCLOUD_API_EU = "https://eapi.pcloud.com"
-PCLOUD_API_GLOBAL = "https://api.pcloud.com"
-FOLDER_PATH = "/glam4you/g4y_export"
+SCOPES = ['https://www.googleapis.com/auth/drive']
+CREDENTIALS_FILE = "credentials.json"
+TOKEN_FILE = "token.pickle"
+FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"  # <--- WICHTIG: hier die ID deines Google Drive Zielordners eintragen!
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-def list_pcloud_videos():
-    """Listet alle Videos im angegebenen pCloud-Ordner (EU-API)."""
-    url = f"{PCLOUD_API_EU}/listfolder"
-    params = {
-        "access_token": PCLOUD_TOKEN,
-        "path": FOLDER_PATH
-    }
-    r = requests.get(url, params=params)
-    print("Status Code listfolder:", r.status_code)
-    print("Antwort listfolder (Text):", r.text)
-    try:
-        result = r.json()
-    except Exception as ex:
-        raise Exception(f"Fehler beim Parsen von listfolder: {r.text}") from ex
-    if result.get("result") != 0:
-        raise Exception(f"pCloud API Fehler: {result.get('error', result)}")
-    return result.get("metadata", {}).get("contents", [])
+def get_drive_service():
+    creds = None
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                CREDENTIALS_FILE, SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+    return build('drive', 'v3', credentials=creds)
 
-def get_public_link(fileid):
-    """Erstellt einen neuen Public Link oder gibt den existierenden zurück (Global-API)."""
-    url = f"{PCLOUD_API_GLOBAL}/publink/create"  # <--- Korrekt: api.pcloud.com!
-    params = {
-        "access_token": PCLOUD_TOKEN,
-        "fileid": fileid
-    }
-    r = requests.post(url, data=params)   # pCloud erwartet POST!
-    print("Status Code publink:", r.status_code)
-    print("Antwort publink (Text):", r.text)
+def list_drive_videos(name, pin):
+    service = get_drive_service()
     try:
-        result = r.json()
-    except Exception as ex:
-        raise Exception(f"Fehler beim Parsen von publink: {r.text}") from ex
-    if result.get("result") != 0:
-        raise Exception(f"pCloud PublicLink Fehler: {result.get('error', result)}")
-    return result.get("link")
+        query = f"'{FOLDER_ID}' in parents and trashed = false"
+        results = service.files().list(
+            q=query,
+            fields="nextPageToken, files(id, name, webViewLink, webContentLink, mimeType)"
+        ).execute()
+        files = results.get('files', [])
+        # Filter nach Name & PIN im Dateinamen (wie vorher!)
+        matches = []
+        for f in files:
+            fname = f.get("name", "")
+            if fname.lower().startswith(name.lower()) and pin in fname:
+                # Freigabelink erzeugen
+                matches.append((fname, f['id']))
+        return matches
+    except HttpError as e:
+        print("Fehler bei Google Drive:", e)
+        return []
 
-def filter_files(files, name, pin):
-    """Filtert nach Name und PIN im Dateinamen."""
-    matches = []
-    for f in files:
-        fname = f.get("name", "")
-        if fname.lower().startswith(name.lower()) and pin in fname:
-            matches.append((fname, f["fileid"]))
-    return matches
+def get_share_link(file_id):
+    service = get_drive_service()
+    # Freigabe einstellen: Jeder mit Link kann herunterladen
+    permission = {
+        "type": "anyone",
+        "role": "reader"
+    }
+    try:
+        service.permissions().create(fileId=file_id, body=permission).execute()
+        # Hole WebContentLink (direkter Downloadlink)
+        file = service.files().get(fileId=file_id, fields="webContentLink").execute()
+        return file.get("webContentLink")
+    except HttpError as e:
+        print("Fehler beim Link erzeugen:", e)
+        return None
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -62,14 +73,14 @@ def index():
         name = request.form.get("name", "").strip()
         pin = request.form.get("pin", "").strip()
         try:
-            files = list_pcloud_videos()
-            hits = filter_files(files, name, pin)
+            files = list_drive_videos(name, pin)
             links = []
-            for fname, fileid in hits:
-                url = get_public_link(fileid)
-                links.append((fname, url))
+            for fname, fileid in files:
+                url = get_share_link(fileid)
+                if url:
+                    links.append((fname, url))
         except Exception as e:
-            flash(f"Fehler bei der pCloud-Abfrage: {e}", "danger")
+            flash(f"Fehler bei der Google-Drive-Abfrage: {e}", "danger")
             return redirect(url_for("index"))
 
         if links:
