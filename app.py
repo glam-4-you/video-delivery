@@ -1,44 +1,23 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 import os
-import pickle
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
-
-# === Secret-File Pfad-Handling (Render & lokal) ===
-CREDENTIALS_FILE = (
-    "/etc/secrets/credentials.json"
-    if os.path.exists("/etc/secrets/credentials.json")
-    else "credentials.json"
+SERVICE_ACCOUNT_FILE = (
+    "/etc/secrets/service-account.json"
+    if os.path.exists("/etc/secrets/service-account.json")
+    else "service-account.json"
 )
-TOKEN_FILE = (
-    "/etc/secrets/token.pickle"
-    if os.path.exists("/etc/secrets/token.pickle")
-    else "token.pickle"
-)
-
-FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"  # <--- WICHTIG: hier die ID deines Google Drive Zielordners eintragen!
+FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 def get_drive_service():
-    creds = None
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'rb') as token:
-            creds = pickle.load(token)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(TOKEN_FILE, 'wb') as token:
-            pickle.dump(creds, token)
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
     return build('drive', 'v3', credentials=creds)
 
 def list_drive_videos(name, pin):
@@ -50,31 +29,27 @@ def list_drive_videos(name, pin):
             fields="nextPageToken, files(id, name, webViewLink, webContentLink, mimeType)"
         ).execute()
         files = results.get('files', [])
-        # Filter nach Name & PIN im Dateinamen (wie vorher!)
         matches = []
         for f in files:
             fname = f.get("name", "")
             if fname.lower().startswith(name.lower()) and pin in fname:
-                # Freigabelink erzeugen
                 matches.append((fname, f['id']))
         return matches
-    except HttpError as e:
+    except Exception as e:
         print("Fehler bei Google Drive:", e)
         return []
 
 def get_share_link(file_id):
     service = get_drive_service()
-    # Freigabe einstellen: Jeder mit Link kann herunterladen
     permission = {
         "type": "anyone",
         "role": "reader"
     }
     try:
-        service.permissions().create(fileId=file_id, body=permission).execute()
-        # Hole WebContentLink (direkter Downloadlink)
+        service.permissions().create(fileId=file_id, body=permission, fields="id").execute()
         file = service.files().get(fileId=file_id, fields="webContentLink").execute()
         return file.get("webContentLink")
-    except HttpError as e:
+    except Exception as e:
         print("Fehler beim Link erzeugen:", e)
         return None
 
