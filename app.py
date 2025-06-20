@@ -36,10 +36,17 @@ def list_drive_videos(name, pin):
         matches = []
         for f in files:
             fname = f.get("name", "")
+
+            # ⛔️ Ignoriere Dateien, die mit "." oder "._" beginnen (macOS-Dateien)
+            if fname.startswith(".") or fname.startswith("._"):
+                print(f"Ignoriere Datei: {fname}")
+                continue
+
             print(f"Check: '{fname}'  name={name} pin={pin}")
             name_in_file = name.lower().strip() in fname.lower()
             pin_in_file = pin.strip() in fname
             print(f"   -> name_in_file={name_in_file}, pin_in_file={pin_in_file}")
+
             if name_in_file and pin_in_file:
                 matches.append((fname, f['id']))
         print(f"Gefundene Matches: {[m[0] for m in matches]}")
@@ -61,7 +68,6 @@ def get_share_link(file_id):
     except Exception as e:
         print("Fehler beim Link erzeugen:", e)
         return None
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
