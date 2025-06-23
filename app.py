@@ -27,7 +27,7 @@ def list_drive_videos(name, pin):
         query = f"'{FOLDER_ID}' in parents and trashed = false"
         results = service.files().list(
             q=query,
-            fields="files(id, name, webContentLink)"
+            fields="files(id, name, webViewLink)"
         ).execute()
         files = results.get('files', [])
         print("Alle Dateien im Google-Drive-Ordner:")
@@ -73,7 +73,7 @@ def index():
         if matches:
             links = []
             for fname, file_id in matches:
-                url = f"https://drive.google.com/uc?id={file_id}/view"
+                url = f"https://drive.google.com/uc?id={file_id}&export=download"
                 links.append((fname, url))
             return render_template("results.html", matches=links)
         else:
