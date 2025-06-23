@@ -1,24 +1,24 @@
-from flask import Flask, request, render_template, redirect, url_for, flash
-import os
-from googleapiclient.discovery import build
+from flask import Flask, render_template, request, redirect, url_for, flash
 from google.oauth2 import service_account
-
-SCOPES = ['https://www.googleapis.com/auth/drive']
-SERVICE_ACCOUNT_FILE = (
-    "/etc/secrets/service-account.json"
-    if os.path.exists("/etc/secrets/service-account.json")
-    else "service-account.json"
-)
-FOLDER_ID = "1GK0SNOvUuhY6DpfgwCq3b5qA41YmZap4"
+from googleapiclient.discovery import build
+import re
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
+
+SERVICE_ACCOUNT_FILE = "service-account.json"
+SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+FOLDER_ID = "1GK0SNOvUuhY6DpfgwCq3b5qA41YmZap4"  # <- Dein Google Drive Ordner
 
 def get_drive_service():
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES
     )
-    return build('drive', 'v3', credentials=creds)
+    return build("drive", "v3", credentials=creds)
+
+def extract_number_from_name(name):
+    match = re.search(r"_(\d{2})_", name)
+    return int(match.group(1)) if match else 0
 
 def list_drive_videos(name, pin):
     service = get_drive_service()
@@ -49,48 +49,38 @@ def list_drive_videos(name, pin):
 
             if name_in_file and pin_in_file:
                 matches.append((fname, f['id']))
+
+        # ✅ Sortiere die Matches nach Nummer im Dateinamen (z. B. _01_)
+        matches.sort(key=lambda x: extract_number_from_name(x[0]))
+
         print(f"Gefundene Matches: {[m[0] for m in matches]}")
         return matches
     except Exception as e:
         print("Fehler bei Google Drive:", e)
         return []
 
-def get_share_link(file_id):
-    service = get_drive_service()
-    permission = {
-        "type": "anyone",
-        "role": "reader"
-    }
-    try:
-        service.permissions().create(fileId=file_id, body=permission, fields="id").execute()
-        file = service.files().get(fileId=file_id, fields="webViewLink").execute()
-        return file.get("webViewLink")
-    except Exception as e:
-        print("Fehler beim Link erzeugen:", e)
-        return None
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         pin = request.form.get("pin", "").strip()
-        try:
-            files = list_drive_videos(name, pin)
-            links = []
-            for fname, fileid in files:
-                url = get_share_link(fileid)
-                if url:
-                    links.append((fname, url))
-        except Exception as e:
-            flash(f"Fehler bei der Google-Drive-Abfrage: {e}", "danger")
+
+        if not name or not pin:
+            flash("Bitte gib Name und PIN ein.", "error")
             return redirect(url_for("index"))
 
-        if links:
+        matches = list_drive_videos(name, pin)
+        if matches:
+            links = []
+            for fname, file_id in matches:
+                url = f"https://drive.google.com/uc?id={file_id}&export=download"
+                links.append((fname, url))
             return render_template("results.html", matches=links)
         else:
-            flash("Kein passendes Video gefunden.", "danger")
+            flash("Keine passenden Videos gefunden. Bitte prüfe Name und PIN.", "error")
             return redirect(url_for("index"))
+
     return render_template("form.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
