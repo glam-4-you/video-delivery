@@ -44,7 +44,7 @@
     .download-button:hover {
       background: #444;
     }
-    @media (max-width: 500px) {
+    @media (max-width: 300px) {
       .video-card {
         width: 90%;
         padding: 1rem;
@@ -53,13 +53,13 @@
   </style>
 </head>
 <body>
-  <h1>Dein Video von glam4you</h1>
+  <h1>glam4you</h1>
   {% for name, link in matches %}
     {% set parts = name.split('_') %}
     {% set label = parts[0] ~ ' ' ~ parts[-2] %}
     <div class="video-card">
       <div class="video-label">🎥 {{ label }}</div>
-      <a class="download-button" href="{{ link }}" target="_blank" rel="noopener noreferrer">📥 Herunterladen</a>
+      <a class="download-button" href="{{ link }}" target="_blank" rel="noopener noreferrer">View</a>
     </div>
   {% endfor %}
 </body>
