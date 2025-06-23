@@ -3,60 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>glam4you</title>
+  <title>glam4you – Zugang</title>
   <style>
     body {
-      font-family: sans-serif;
-      background-color: #fff;
-      color: #000;
+      font-family: 'Helvetica Neue', sans-serif;
+      background: #fafafa;
+      color: #333;
       margin: 0;
       padding: 2rem;
       text-align: center;
     }
     h1 {
-      font-size: 1.5rem;
+      font-size: 2rem;
       margin-bottom: 0.5rem;
+      color: #111;
+    }
+    p {
+      margin-top: 0;
+      margin-bottom: 2rem;
+      color: #555;
     }
     form {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1rem;
+      gap: 1.2rem;
       max-width: 300px;
       margin: 0 auto;
     }
     input {
       height: 3rem;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       padding: 0 1rem;
       border: 1px solid #ccc;
-      border-radius: 8px;
+      border-radius: 6px;
       width: 100%;
-      max-width: 200px;
     }
     button {
       height: 3rem;
-      font-size: 1.2rem;
-      width: 100px;
-      background-color: #000;
-      color: #fff;
+      font-size: 1.1rem;
+      padding: 0 1.5rem;
+      background-color: #111;
+      color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      background-color: #444;
     }
     .error {
-      color: red;
+      color: #c00;
+      margin-bottom: 1.5rem;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Get your glam4you</h1>
-  <p>enter your Session-Name and PIN</p>
+  <h1>glam4you Delivery</h1>
+  <p>Gib deinen Session-Namen und deine PIN ein</p>
+
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <p class="error">{{ messages[0][1] }}</p>
     {% endif %}
   {% endwith %}
+
   <form method="post">
     <input type="text" name="name" placeholder="Name" required>
     <input type="text" name="pin" placeholder="PIN" required maxlength="3">

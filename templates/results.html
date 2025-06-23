@@ -3,36 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>glam4you</title>
+  <title>glam4you – Dein Video</title>
   <style>
     body {
-      font-family: sans-serif;
-      background-color: #fff;
-      color: #000;
+      font-family: 'Helvetica Neue', sans-serif;
+      background: #fafafa;
+      color: #333;
+      margin: 0;
       padding: 2rem;
       text-align: center;
     }
     h1 {
+      font-size: 2rem;
       margin-bottom: 2rem;
+      color: #111;
     }
-    a.download {
-      display: block;
+    .video-card {
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      border-radius: 10px;
       margin: 1rem auto;
-      padding: 1rem;
-      background: #000;
+      padding: 1.5rem;
+      max-width: 320px;
+    }
+    .video-label {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+    .download-button {
+      display: inline-block;
+      padding: 0.75rem 1.25rem;
+      background: #111;
       color: #fff;
+      border-radius: 6px;
       text-decoration: none;
-      border-radius: 8px;
-      max-width: 200px;
+      font-size: 1rem;
+      transition: background 0.2s ease;
+    }
+    .download-button:hover {
+      background: #444;
+    }
+    @media (max-width: 500px) {
+      .video-card {
+        width: 90%;
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>glam4you</h1>
+  <h1>Dein Video von glam4you</h1>
   {% for name, link in matches %}
     {% set parts = name.split('_') %}
     {% set label = parts[0] ~ ' ' ~ parts[-2] %}
-    <a class="download" href="{{ link }}" target="_blank" rel="noopener noreferrer">{{ label }}</a>
+    <div class="video-card">
+      <div class="video-label">🎥 {{ label }}</div>
+      <a class="download-button" href="{{ link }}" target="_blank" rel="noopener noreferrer">📥 Herunterladen</a>
+    </div>
   {% endfor %}
 </body>
 </html>
