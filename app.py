@@ -73,7 +73,7 @@ def index():
         if matches:
             links = []
             for fname, file_id in matches:
-                url = f"https://drive.google.com/uc?id={file_id}&export=download"
+                url = f"https://drive.google.com/uc?id={file_id}/view"
                 links.append((fname, url))
             return render_template("results.html", matches=links)
         else:
