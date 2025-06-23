@@ -31,26 +31,21 @@ def list_drive_videos(name, pin):
         ).execute()
         files = results.get('files', [])
         print("Alle Dateien im Google-Drive-Ordner:")
-        for f in files:
-            print("  -", f.get("name", ""))
         matches = []
         for f in files:
             fname = f.get("name", "")
+            view_link = f.get("webViewLink", "")
 
-            # ⛔️ Ignoriere Dateien, die mit "." oder "._" beginnen (macOS-Dateien)
             if fname.startswith(".") or fname.startswith("._"):
                 print(f"Ignoriere Datei: {fname}")
                 continue
 
-            print(f"Check: '{fname}'  name={name} pin={pin}")
             name_in_file = name.lower().strip() in fname.lower()
             pin_in_file = pin.strip() in fname
-            print(f"   -> name_in_file={name_in_file}, pin_in_file={pin_in_file}")
 
             if name_in_file and pin_in_file:
-                matches.append((fname, f['id']))
+                matches.append((fname, view_link))
 
-        # ✅ Sortiere die Matches nach Nummer im Dateinamen (z. B. _01_)
         matches.sort(key=lambda x: extract_number_from_name(x[0]))
 
         print(f"Gefundene Matches: {[m[0] for m in matches]}")
@@ -71,11 +66,7 @@ def index():
 
         matches = list_drive_videos(name, pin)
         if matches:
-            links = []
-            for fname, file_id in matches:
-                url = f"https://drive.google.com/uc?id={file_id}&export=download"
-                links.append((fname, url))
-            return render_template("results.html", matches=links)
+            return render_template("results.html", matches=matches)
         else:
             flash("Keine passenden Videos gefunden. Bitte prüfe Name und PIN.", "error")
             return redirect(url_for("index"))
