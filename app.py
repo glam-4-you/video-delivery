@@ -1,79 +1,79 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash
+import os
+import googleapiclient.discovery
+import googleapiclient.errors
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-import re
 
+# ---- Google Drive Einstellungen ----
+FOLDER_ID = "1zO2qTb3CBj10M9SZycJCVFKbIgvCSBpE"  # <-- Passe hier ggf. an!
+SERVICE_ACCOUNT_FILE = "service-account.json"     # Der Dateiname deines Service-Accounts
+SCOPES = ["https://www.googleapis.com/auth/drive"]  # NICHT readonly!
+
+# ---- Flask App ----
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
-
-SERVICE_ACCOUNT_FILE = "service-account.json"
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
-FOLDER_ID = "1GK0SNOvUuhY6DpfgwCq3b5qA41YmZap4"  # <- Dein Google Drive Ordner
 
 def get_drive_service():
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES
     )
-    return build("drive", "v3", credentials=creds)
+    service = googleapiclient.discovery.build("drive", "v3", credentials=creds)
+    return service
 
-def extract_number_from_name(name):
-    match = re.search(r"_(\d{2})_", name)
-    return int(match.group(1)) if match else 0
+def ensure_public_permission(service, file_id):
+    try:
+        # Versucht, jedem Lesezugriff zu geben (Fehler, wenn schon vorhanden = egal)
+        service.permissions().create(
+            fileId=file_id,
+            body={'type': 'anyone', 'role': 'reader'},
+        ).execute()
+    except Exception as e:
+        print(f"(Warnung: {e})")  # Meist harmlos, wenn Permission schon existiert
 
 def list_drive_videos(name, pin):
     service = get_drive_service()
+    matches = []
     try:
-        print(f"\nDEBUG: Suche in Google Drive Ordner {FOLDER_ID} nach Name='{name}', PIN='{pin}'")
-        query = f"'{FOLDER_ID}' in parents and trashed = false"
+        # Nur Dateien aus DEM ORDNER listen
         results = service.files().list(
-            q=query,
-            fields="files(id, name, webViewLink)"
+            q=f"'{FOLDER_ID}' in parents and trashed = false",
+            fields="files(id, name, webViewLink)",
+            pageSize=1000
         ).execute()
-        files = results.get('files', [])
-        print("Alle Dateien im Google-Drive-Ordner:")
-        matches = []
+        files = results.get("files", [])
+
         for f in files:
             fname = f.get("name", "")
-            view_link = f.get("webViewLink", "")
+            file_id = f.get("id", "")
+            webview_link = f.get("webViewLink", "")
 
-            if fname.startswith(".") or fname.startswith("._"):
-                print(f"Ignoriere Datei: {fname}")
-                continue
-
-            name_in_file = name.lower().strip() in fname.lower()
-            pin_in_file = pin.strip() in fname
+            name_in_file = fname.lower().startswith(name.lower())
+            pin_in_file = pin in fname
 
             if name_in_file and pin_in_file:
-                matches.append((fname, view_link))
+                ensure_public_permission(service, file_id)
+                matches.append((fname, webview_link))
 
-        matches.sort(key=lambda x: extract_number_from_name(x[0]))
-
-        print(f"Gefundene Matches: {[m[0] for m in matches]}")
-        return matches
     except Exception as e:
-        print("Fehler bei Google Drive:", e)
+        print(f"Fehler bei der Google-Drive-Abfrage: {e}")
         return []
+
+    return matches
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         pin = request.form.get("pin", "").strip()
-
-        if not name or not pin:
-            flash("Bitte gib Name und PIN ein.", "error")
-            return redirect(url_for("index"))
-
         matches = list_drive_videos(name, pin)
+
         if matches:
             return render_template("results.html", matches=matches)
         else:
-            flash("Keine passenden Videos gefunden. Bitte prüfe Name und PIN.", "error")
+            flash("Kein passendes Video gefunden.", "danger")
             return redirect(url_for("index"))
 
     return render_template("form.html")
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
