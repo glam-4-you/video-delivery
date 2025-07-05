@@ -34,13 +34,13 @@ def list_drive_videos(name, pin):
     service = get_drive_service()
     matches = []
     try:
-        # Nur Dateien aus DEM ORDNER listen
         results = service.files().list(
             q=f"'{FOLDER_ID}' in parents and trashed = false",
             fields="files(id, name, webViewLink)",
             pageSize=1000
         ).execute()
         files = results.get("files", [])
+        print(f"Gefundene Dateien im Ordner: {[f.get('name') for f in files]}")   # <-- Neue Zeile
 
         for f in files:
             fname = f.get("name", "")
